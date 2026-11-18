@@ -1,0 +1,17 @@
+Setup,Model,MAE,RMSE,R2
+Setup A (Full/All Features),Baseline (Mean),3.322,4.482,-0.0
+Setup A (Full/All Features),Ridge Regression,1.543,2.141,0.772
+Setup A (Full/All Features),Random Forest Regressor,1.046,1.627,0.868
+Setup A (Full/All Features),Gradient Boosting Regressor,1.106,1.714,0.854
+Setup B (Mid-Term: No G2),Baseline (Mean),3.322,4.482,-0.0
+Setup B (Mid-Term: No G2),Ridge Regression,2.17,2.837,0.599
+Setup B (Mid-Term: No G2),Random Forest Regressor,1.688,2.268,0.744
+Setup B (Mid-Term: No G2),Gradient Boosting Regressor,1.697,2.323,0.731
+Setup C (No Prior Grades),Baseline (Mean),3.322,4.482,-0.0
+Setup C (No Prior Grades),Ridge Regression,3.708,4.661,-0.082
+Setup C (No Prior Grades),Random Forest Regressor,3.041,3.979,0.212
+Setup C (No Prior Grades),Gradient Boosting Regressor,3.249,4.163,0.137
+Setup D (Day-0: True Enrolment),Baseline (Mean),3.322,4.482,-0.0
+Setup D (Day-0: True Enrolment),Ridge Regression,3.769,4.711,-0.105
+Setup D (Day-0: True Enrolment),Random Forest Regressor,3.434,4.415,0.029
+Setup D (Day-0: True Enrolment),Gradient Boosting Regressor,3.622,4.548,-0.03

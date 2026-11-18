@@ -1,0 +1,6 @@
+Capacity (Top K%),Students Reviewed,Failing Caught,Total Failing,Fail Recall (%),Precision (%),Lift vs Random
+10%,32,19,104,18.3%,59.4%,1.80x
+20%,64,32,104,30.8%,50.0%,1.52x
+30%,95,46,104,44.2%,48.4%,1.47x
+40%,127,56,104,53.8%,44.1%,1.34x
+50%,158,66,104,63.5%,41.8%,1.27x
