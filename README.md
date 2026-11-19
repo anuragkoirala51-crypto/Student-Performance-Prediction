@@ -104,7 +104,7 @@ Open **`http://localhost:7860`** in your browser to view the application.
 
 ---
 
-## 🎓 Academic Submission
+## Academic Submission
 
 * **Student Name:** Anurag Koirala
 * **Roll Number:** ECB24030
