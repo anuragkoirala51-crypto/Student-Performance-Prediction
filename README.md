@@ -9,7 +9,7 @@
 
 ---
 
-## 📌 Project Overview
+## Project Overview
 
 Predicting student academic performance is a vital tool for educational institutions to provide timely academic support before final examinations take place.
 
@@ -25,7 +25,7 @@ This project evaluates performance across 4 realistic academic intervention poin
 
 ---
 
-## 🚀 Key Features & Contributions
+## Key Features & Contributions
 
 - **Early Risk Classification:** While predicting exact continuous grades without exam history yields $R^2 \approx 0.03$, risk classification (Pass vs. Fail) achieves strong institutional separation (**ROC-AUC = 0.635** on Day 1).
 - **Teacher Capacity Optimization (Recall@K):** Under realistic advising constraints, screening the top **20% most at-risk students captures 30.8% of all eventual failures** (a **1.52x efficiency lift** over random triage).
@@ -34,7 +34,7 @@ This project evaluates performance across 4 realistic academic intervention poin
 
 ---
 
-## 📁 Repository Structure
+##  Repository Structure
 
 ```text
 ├── app.py                                  # Interactive Gradio web application
@@ -64,7 +64,7 @@ This project evaluates performance across 4 realistic academic intervention poin
 
 ---
 
-## ⚙️ Installation & Usage
+##  Installation & Usage
 
 ### 1. Clone the Repository
 ```bash
@@ -93,7 +93,7 @@ Open **`http://localhost:7860`** in your browser to view the application.
 
 ---
 
-## 📊 Summary of Results
+## Summary of Results
 
 | Setup | Stage | Classifier | ROC-AUC | Accuracy | Brier Score | Recall@20% |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: |
