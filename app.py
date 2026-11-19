@@ -260,7 +260,7 @@ with gr.Blocks(css=CUSTOM_CSS, title="Student Academic Performance Prediction") 
     with gr.Column(elem_classes="header-box"):
         gr.Markdown(
             """
-            # 🎓 Student Academic Performance Prediction
+            # Student Academic Performance Prediction
             Predict academic pass/fail risk and estimated final grade based on student habits and records.
             """
         )
@@ -349,13 +349,12 @@ with gr.Blocks(css=CUSTOM_CSS, title="Student Academic Performance Prediction") 
 
         # Right Column: Prediction Result Panel (scale=2)
         with gr.Column(scale=2):
-            gr.Markdown("**📊 Prediction Result**")
+            gr.Markdown("**Prediction Result**")
             result_output = gr.HTML(
                 value="""
-                <div style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 36px 18px; text-align: center; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;">
-                  <div style="font-size: 32px; margin-bottom: 8px;">📋</div>
-                  <div style="font-size: 15px; font-weight: 600; color: #e2e8f0;">Ready for Evaluation</div>
-                  <div style="font-size: 12.5px; margin-top: 4px; color: #94a3b8; line-height: 1.4;">
+                <div style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 42px 18px; text-align: center; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;">
+                  <div style="font-size: 15px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px;">Ready for Evaluation</div>
+                  <div style="font-size: 12.5px; color: #94a3b8; line-height: 1.45;">
                     Configure student parameters on the left and click <b>Predict Performance</b> to generate assessment.
                   </div>
                 </div>
