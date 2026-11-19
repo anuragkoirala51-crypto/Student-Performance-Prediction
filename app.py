@@ -3,31 +3,60 @@ import joblib
 import pandas as pd
 import gradio as gr
 
-# Load models saved by the training pipeline
+# Load models from training pipeline
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
 clf_day0 = joblib.load(os.path.join(MODEL_DIR, "best_classifier_setup_d.joblib"))
 clf_midterm = joblib.load(os.path.join(MODEL_DIR, "best_classifier_setup_a.joblib"))
 reg_day0 = joblib.load(os.path.join(MODEL_DIR, "best_regressor_setup_d.joblib"))
 
-# Input mapping dictionaries
-STUDY_HOURS = {
-    "< 2 hours per week": 1,
-    "2 to 5 hours per week": 2,
-    "5 to 10 hours per week": 3,
-    "> 10 hours per week": 4,
+# Study hours mapping to numeric model tiers (1: <2h, 2: 2-5h, 3: 5-10h, 4: >10h)
+STUDY_HOURS_MAP = {
+    "0 hours": 1,
+    "1–2 hours": 1,
+    "3–5 hours": 2,
+    "6–10 hours": 3,
+    "11–15 hours": 4,
+    "16–20 hours": 4,
+    "21–30 hours": 4,
+    "30+ hours": 4,
 }
 
-PARENT_EDU_MAP = {
-    "Higher Education (College / Degree)": 4,
-    "Secondary (10th / 12th)": 3,
-    "Middle School (5th to 8th)": 2,
-    "Primary (up to 4th)": 1,
-    "None": 0,
+# Neutral default background features to ensure the ML pipeline receives valid inputs
+DEFAULT_STUDENT_PROFILE = {
+    "school": "GP",
+    "sex": "F",
+    "age": 17,
+    "address": "U",
+    "famsize": "GT3",
+    "Pstatus": "T",
+    "Medu": 3,
+    "Fedu": 3,
+    "Mjob": "other",
+    "Fjob": "other",
+    "reason": "course",
+    "guardian": "mother",
+    "traveltime": 1,
+    "studytime": 2,
+    "failures": 0,
+    "schoolsup": "no",
+    "famsup": "yes",
+    "paid": "no",
+    "activities": "yes",
+    "nursery": "yes",
+    "higher": "yes",
+    "internet": "yes",
+    "romantic": "no",
+    "famrel": 4,
+    "freetime": 3,
+    "goout": 3,
+    "Dalc": 1,
+    "Walc": 1,
+    "health": 4,
 }
 
 def render_result_gauge(prob, pred_grade, status_text, status_color, notes):
-    """Draw circular score meter and summary card."""
-    # Semi-circle gauge (radius 80, half circumference ~ 251.3)
+    """Render circular score meter and summary card in dark theme."""
+    # Semi-circle gauge math (radius 80, half circumference = 251.3)
     arc_len = 251.3
     offset = arc_len * (1.0 - (prob / 100.0))
     offset = max(0, min(arc_len, offset))
@@ -41,7 +70,7 @@ def render_result_gauge(prob, pred_grade, status_text, status_color, notes):
       <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
         <div style="position: relative; width: 230px; height: 135px;">
           <svg viewBox="0 0 200 120" style="width: 100%; height: 100%; overflow: visible;">
-            <!-- Background Arc -->
+            <!-- Background Track -->
             <path d="M 20 105 A 80 80 0 0 1 180 105" fill="none" stroke="#1f2937" stroke-width="16" stroke-linecap="round"/>
             <!-- Value Arc -->
             <path d="M 20 105 A 80 80 0 0 1 180 105" fill="none" stroke="{status_color}" stroke-width="16" stroke-linecap="round"
@@ -78,93 +107,65 @@ def render_result_gauge(prob, pred_grade, status_text, status_color, notes):
     """
     return html
 
-def predict_student(
+def predict(
     evaluation_stage,
-    study_time,
+    study_hours,
     failures,
-    school,
-    paid_classes,
-    school_support,
     absences,
-    g1_score,
-    g2_score,
-    age,
-    gender,
-    area,
-    parents_edu,
-    higher_ed,
-    internet,
-    goout,
-    alcohol,
-    fam_rel,
+    term1_score,
+    midterm_score,
+    paid_tutoring,
+    academic_support,
 ):
-    # Construct feature dictionary for model pipeline
-    student_data = {
-        "school": "GP" if "GP" in school else "MS",
-        "sex": "F" if gender == "Female" else "M",
-        "age": int(age),
-        "address": "U" if area == "Urban" else "R",
-        "famsize": "GT3",
-        "Pstatus": "T",
-        "Medu": PARENT_EDU_MAP.get(parents_edu, 3),
-        "Fedu": PARENT_EDU_MAP.get(parents_edu, 3),
-        "Mjob": "services",
-        "Fjob": "services",
-        "reason": "course",
-        "guardian": "mother",
-        "traveltime": 1,
-        "studytime": STUDY_HOURS.get(study_time, 2),
-        "failures": int(failures),
-        "schoolsup": "yes" if school_support == "Yes" else "no",
-        "famsup": "yes",
-        "paid": "yes" if paid_classes == "Yes" else "no",
-        "activities": "yes",
-        "nursery": "yes",
-        "higher": "yes" if "Yes" in higher_ed else "no",
-        "internet": "yes" if internet == "Yes" else "no",
-        "romantic": "no",
-        "famrel": int(fam_rel),
-        "freetime": 3,
-        "goout": int(goout),
-        "Dalc": 1,
-        "Walc": int(alcohol),
-        "health": 4,
-    }
+    # Initialize features from baseline profile
+    data = DEFAULT_STUDENT_PROFILE.copy()
+    data["studytime"] = STUDY_HOURS_MAP.get(study_hours, 2)
+    data["failures"] = min(int(failures), 4)
+    data["paid"] = "yes" if paid_tutoring == "Yes" else "no"
+    data["schoolsup"] = "yes" if academic_support == "Yes" else "no"
 
     notes = []
 
-    # Run appropriate model based on stage
+    # Dynamic behavior based on Evaluation Stage
     if "Mid-Semester" in evaluation_stage:
-        student_data["absences"] = int(absences)
-        student_data["G1"] = int(g1_score)
-        student_data["G2"] = int(g2_score)
-        df_row = pd.DataFrame([student_data])
-        prob = clf_midterm.predict_proba(df_row)[0][1] * 100
-        pred_grade = 0.5 * (int(g1_score) + int(g2_score))
+        # Scale Term 1 (out of 10) and Mid-Term (out of 30) to the model's 0-20 scale
+        g1_scaled = (float(term1_score) / 10.0) * 20.0
+        g2_scaled = (float(midterm_score) / 30.0) * 20.0
 
-        if int(g2_score) >= 12:
-            notes.append("Good scores in internal exams (G1 and G2).")
-        elif int(g2_score) < 10:
-            notes.append("Internal exam marks are currently below passing threshold (10/20).")
+        data["absences"] = int(absences)
+        data["G1"] = g1_scaled
+        data["G2"] = g2_scaled
+
+        df_input = pd.DataFrame([data])
+        prob = clf_midterm.predict_proba(df_input)[0][1] * 100
+        pred_grade = 0.5 * (g1_scaled + g2_scaled)
+
+        notes.append(f"Term 1: {term1_score}/10 | Mid-Term: {midterm_score}/30 included in evaluation.")
+        if g2_scaled >= 12:
+            notes.append("Strong internal exam scores indicate solid passing trajectory.")
+        elif g2_scaled < 10:
+            notes.append("Internal exam scores are below passing grade (10/20); extra support advised.")
     else:
-        df_row = pd.DataFrame([student_data])
-        prob = clf_day0.predict_proba(df_row)[0][1] * 100
-        pred_grade = float(reg_day0.predict(df_row)[0])
+        # Semester Start: Use Day-0 models which do not require or assume G1/G2
+        df_input = pd.DataFrame([data])
+        prob = clf_day0.predict_proba(df_input)[0][1] * 100
+        pred_grade = float(reg_day0.predict(df_input)[0])
 
-        if STUDY_HOURS.get(study_time, 2) >= 3:
-            notes.append(f"Regular weekly study hours ({study_time}).")
+        notes.append("Day-1 enrollment evaluation based on academic habits and background.")
+        if STUDY_HOURS_MAP.get(study_hours, 2) >= 3:
+            notes.append(f"Committed study schedule ({study_hours}) provides strong academic stability.")
         else:
-            notes.append("Study time is relatively low; increasing study hours will improve chances.")
+            notes.append("Study hours are relatively low; committing 6+ hours weekly will improve performance.")
 
     if int(failures) == 0:
-        notes.append("No past failed subjects or backlogs.")
+        notes.append("Clean academic record with no previous failed classes.")
     else:
-        notes.append(f"Student has {failures} past backlog(s).")
+        notes.append(f"Student has {failures} previous backlog/failed subject(s).")
 
-    if int(absences) > 10:
-        notes.append(f"High number of absences ({absences} days).")
+    if int(absences) > 8:
+        notes.append(f"Recorded absences ({absences} days) could impact end-of-term results.")
 
-    # Set status badge and color
+    # Status classification
     if prob >= 70:
         status_text = "PASS"
         status_color = "#10b981"  # Green
@@ -177,73 +178,97 @@ def predict_student(
 
     return render_result_gauge(prob, pred_grade, status_text, status_color, notes)
 
+def toggle_exam_inputs(stage):
+    """Show or hide exam score inputs depending on the selected stage."""
+    is_midterm = "Mid-Semester" in stage
+    return gr.update(visible=is_midterm)
+
 # ----------------- Gradio UI -----------------
-with gr.Blocks(title="Student Performance Prediction") as demo:
+with gr.Blocks(title="Student Academic Performance Prediction") as demo:
     gr.Markdown(
         """
         # Student Academic Performance Prediction
-        Enter student details and study habits to predict pass/fail result and expected final grade.
+        Enter student details to evaluate academic risk and predict final performance.
         """
     )
 
     with gr.Row():
-        # Input Form
+        # Input Form Column
         with gr.Column(scale=3):
             evaluation_stage = gr.Radio(
                 [
-                    "Semester Start (Before internal exams)",
-                    "Mid-Semester (With Term 1 & 2 exam marks)",
+                    "Semester Start (Day-1 Enrollment / Pre-Exam)",
+                    "Mid-Semester (Includes Term 1 and Mid-Term Exam results)",
                 ],
-                value="Semester Start (Before internal exams)",
-                label="Evaluation Timing",
+                value="Semester Start (Day-1 Enrollment / Pre-Exam)",
+                label="Evaluation Stage",
             )
 
-            gr.Markdown("### Academic Information")
+            gr.Markdown("### Student Academic Information")
             with gr.Row():
-                study_time = gr.Dropdown(
-                    list(STUDY_HOURS.keys()),
-                    value="5 to 10 hours per week",
-                    label="Weekly Study Time",
+                study_hours = gr.Dropdown(
+                    [
+                        "0 hours",
+                        "1–2 hours",
+                        "3–5 hours",
+                        "6–10 hours",
+                        "11–15 hours",
+                        "16–20 hours",
+                        "21–30 hours",
+                        "30+ hours",
+                    ],
+                    value="6–10 hours",
+                    label="Weekly Study Hours",
                 )
-                failures = gr.Slider(0, 4, value=0, step=1, label="Past Failed Subjects")
-
-            with gr.Row():
-                school = gr.Radio(
-                    ["GP - Gabriel Pereira", "MS - Mousinho da Silveira"],
-                    value="GP - Gabriel Pereira",
-                    label="School Name",
+                failures = gr.Slider(
+                    minimum=0,
+                    maximum=10,
+                    value=0,
+                    step=1,
+                    label="Previous Failed Classes / Backlogs",
                 )
-                paid_classes = gr.Radio(["No", "Yes"], value="No", label="Extra Tuition / Coaching")
-                school_support = gr.Radio(["No", "Yes"], value="No", label="Remedial Classes")
 
             with gr.Row():
-                absences = gr.Slider(0, 40, value=2, step=1, label="Absences (Days Missed)")
-                g1_score = gr.Slider(0, 20, value=12, step=1, label="Internal Exam 1 Marks (0-20)")
-                g2_score = gr.Slider(0, 20, value=13, step=1, label="Internal Exam 2 Marks (0-20)")
-
-            gr.Markdown("### Personal Background & Habits")
-            with gr.Row():
-                age = gr.Slider(15, 22, value=17, step=1, label="Age")
-                gender = gr.Radio(["Female", "Male"], value="Female", label="Gender")
-                area = gr.Radio(["Urban", "Rural"], value="Urban", label="Area (Urban / Rural)")
-
-            with gr.Row():
-                parents_edu = gr.Dropdown(
-                    list(PARENT_EDU_MAP.keys()),
-                    value="Higher Education (College / Degree)",
-                    label="Parents' Education",
+                absences = gr.Slider(
+                    minimum=0,
+                    maximum=30,
+                    value=0,
+                    step=1,
+                    label="Semester Absences (Days)",
                 )
-                higher_ed = gr.Radio(["Yes", "No"], value="Yes", label="Plans for Higher Studies")
+
+            # Exam Scores Row (dynamically visible only in Mid-Semester mode)
+            with gr.Row(visible=False) as exam_scores_row:
+                term1_score = gr.Slider(
+                    minimum=0,
+                    maximum=10,
+                    value=5,
+                    step=1,
+                    label="Term 1 Exam Score (out of 10 marks)",
+                )
+                midterm_score = gr.Slider(
+                    minimum=0,
+                    maximum=30,
+                    value=15,
+                    step=1,
+                    label="Mid-Term Exam Score (out of 30 marks)",
+                )
 
             with gr.Row():
-                internet = gr.Radio(["Yes", "No"], value="Yes", label="Internet Access at Home")
-                goout = gr.Slider(1, 5, value=2, step=1, label="Going Out with Friends (1 to 5)")
-                alcohol = gr.Slider(1, 5, value=1, step=1, label="Weekend Alcohol / Partying (1 to 5)")
-                fam_rel = gr.Slider(1, 5, value=4, step=1, label="Family Support (1 to 5)")
+                paid_tutoring = gr.Radio(
+                    ["No", "Yes"],
+                    value="No",
+                    label="Extra Paid Tutoring",
+                )
+                academic_support = gr.Radio(
+                    ["No", "Yes"],
+                    value="No",
+                    label="Academic Support / Remedial Classes",
+                )
 
             submit_btn = gr.Button("Predict Performance", variant="primary", size="lg")
 
-        # Result Display (Gauge & Cards)
+        # Result Display Column (Aesthetic Gauge Card)
         with gr.Column(scale=2):
             gr.Markdown("### Prediction Result")
             result_output = gr.HTML(
@@ -255,28 +280,28 @@ with gr.Blocks(title="Student Performance Prediction") as demo:
                 """
             )
 
+    # Dynamic visibility toggle when evaluation stage changes
+    evaluation_stage.change(
+        fn=toggle_exam_inputs,
+        inputs=evaluation_stage,
+        outputs=exam_scores_row,
+    )
+
+    # Prediction triggers
+    input_components = [
+        evaluation_stage,
+        study_hours,
+        failures,
+        absences,
+        term1_score,
+        midterm_score,
+        paid_tutoring,
+        academic_support,
+    ]
+
     submit_btn.click(
-        fn=predict_student,
-        inputs=[
-            evaluation_stage,
-            study_time,
-            failures,
-            school,
-            paid_classes,
-            school_support,
-            absences,
-            g1_score,
-            g2_score,
-            age,
-            gender,
-            area,
-            parents_edu,
-            higher_ed,
-            internet,
-            goout,
-            alcohol,
-            fam_rel,
-        ],
+        fn=predict,
+        inputs=input_components,
         outputs=result_output,
     )
 
