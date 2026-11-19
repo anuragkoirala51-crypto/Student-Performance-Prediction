@@ -1,17 +1,10 @@
 """
-Early Warning System for Student Performance: Training Pipeline
---------------------------------------------------------------
-End-to-end pipeline covering Setups A, B, C, D across Regression and Classification.
-Includes:
-- Feature timeline audit (Day-0 Setup D: drops G1, G2, absences)
-- Zero-grade dropout anomaly handling & analysis
-- Cross-setup degradation comparison (A -> B -> C -> D)
-- Recall@K (Teacher-capacity curve & lift over random review)
-- Calibration analysis (Brier score & reliability curves)
-- Cost-sensitive threshold optimization (CFN=5x, CFP=1x)
-- Subgroup fairness audit (Sex & Urban/Rural demographic parity)
-- Explainable AI with SHAP (Actionable vs Immutable factors)
-- Model serialization for the live interactive demo
+Student Academic Performance Prediction - Model Training Pipeline
+Machine Learning Course Project
+
+This script loads the student dataset, trains classification and regression models
+across different feature sets (Day-0 enrolment vs Mid-term), evaluates performance,
+and saves the trained models for deployment in the web application.
 """
 
 import os
@@ -318,9 +311,9 @@ def plot_setup_degradation(df_reg, df_clf):
     plt.tight_layout()
     save_fig("setup_degradation_comparison")
 
-# ----------------- Differentiator 1: Recall@K -----------------
+# --- 1. Recall and Detection at Different Review Capacities ---
 def evaluate_recall_at_k(pipe, X, y_pass):
-    print("\n--- Evaluating Recall@K (Teacher Capacity Curve) ---")
+    print("\n--- Evaluating Review Capacity Curve ---")
     skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=SEED)
     p_pass = cross_val_predict(pipe, X, y_pass, cv=skf, method="predict_proba")[:, 1]
     p_fail = 1.0 - p_pass
@@ -375,7 +368,7 @@ def evaluate_recall_at_k(pipe, X, y_pass):
     save_fig("teacher_capacity_curve")
     return df_k
 
-# ----------------- Differentiator 2: Calibration -----------------
+# --- 2. Model Calibration Analysis ---
 def evaluate_calibration(pipe, X, y_pass):
     print("\n--- Evaluating Calibration & Reliability Curve ---")
     skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=SEED)
@@ -406,9 +399,9 @@ def evaluate_calibration(pipe, X, y_pass):
     plt.legend(loc="upper left")
     save_fig("calibration_reliability_curve")
 
-# ----------------- Differentiator 3: Cost-Sensitive Threshold -----------------
+# --- 3. Threshold Optimization ---
 def optimize_decision_threshold(pipe, X, y_pass, cost_fn=5.0, cost_fp=1.0):
-    print("\n--- Cost-Sensitive Threshold Optimization ---")
+    print("\n--- Optimizing Decision Threshold ---")
     skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=SEED)
     p_pass = cross_val_predict(pipe, X, y_pass, cv=skf, method="predict_proba")[:, 1]
     p_fail = 1.0 - p_pass
@@ -444,9 +437,9 @@ def optimize_decision_threshold(pipe, X, y_pass, cost_fn=5.0, cost_fp=1.0):
     save_fig("cost_sensitive_threshold_optimization")
     return opt_t
 
-# ----------------- Differentiator 4: Fairness Audit -----------------
+# --- 4. Subgroup Performance Analysis ---
 def evaluate_subgroup_fairness(pipe, df_test, opt_threshold=0.35):
-    print("\n--- Subgroup Fairness & Disparate Impact Audit ---")
+    print("\n--- Subgroup Performance Analysis ---")
     X_test_d = df_test.drop(columns=["G3", "pass"] + SETUPS["Setup D (Day-0: True Enrolment)"])
     p_pass = pipe.predict_proba(X_test_d)[:, 1]
     p_fail = 1.0 - p_pass
@@ -487,13 +480,13 @@ def evaluate_subgroup_fairness(pipe, df_test, opt_threshold=0.35):
     fairness_df.to_csv("fairness_audit.csv", index=False)
     return fairness_df
 
-# ----------------- Differentiator 5: SHAP & Actionable Recourse -----------------
+# --- 5. Feature Importance Analysis with SHAP ---
 def run_shap_analysis(pipe, X_train, X_test):
     if not HAS_SHAP:
         print("\nSHAP library not available, skipping SHAP plots.")
         return
 
-    print("\n--- Computing SHAP Values for Setup D (Day-0 Model) ---")
+    print("\n--- Computing Feature Importance with SHAP ---")
     preprocessor = pipe.named_steps["prep"]
     model = pipe.named_steps["clf"]
 
@@ -523,7 +516,7 @@ def run_shap_analysis(pipe, X_train, X_test):
 # ----------------- Main Execution -----------------
 def main():
     print("=" * 70)
-    print("EARLY WARNING STUDENT PERFORMANCE: FULL END-TO-END PIPELINE")
+    print("STUDENT PERFORMANCE PREDICTION: TRAINING PIPELINE")
     print("=" * 70)
 
     # 1. Load Data
@@ -544,7 +537,7 @@ def main():
     X_test_d = test_df.drop(columns=["G3", "pass"] + SETUPS["Setup D (Day-0: True Enrolment)"])
     y_train_pass = train_df["pass"]
 
-    # 6. Run Differentiators
+    # 6. Detailed Evaluations
     evaluate_recall_at_k(best_pipe_d, X_train_d, y_train_pass)
     evaluate_calibration(best_pipe_d, X_train_d, y_train_pass)
     opt_t = optimize_decision_threshold(best_pipe_d, X_train_d, y_train_pass, cost_fn=5.0, cost_fp=1.0)
