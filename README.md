@@ -5,7 +5,7 @@
 **Roll Number:** ECB24030  
 **Course:** Machine Learning / AIML  
 **Dataset:** [UCI Student Performance Benchmark](https://archive.ics.uci.edu/dataset/320/student+performance) (Cortez, 2008)  
-**Live Web Application:** [Access Live Demo](https://feluq-117-203-160-4.run.pinggy-free.link)  
+**Live Web Application:** [Access Live Demo](https://ictpf-117-203-160-4.run.pinggy-free.link)  
 
 ---
 
