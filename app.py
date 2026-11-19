@@ -1,48 +1,48 @@
-# Simple Gradio app – beginner version (no AI)
-
+import joblib
+import pandas as pd
 import gradio as gr
 
-# Helper map for study time
-STUDY_MAP = {
-    "<2 hrs/week": 1,
-    "2‑5 hrs/week": 2,
-    "5‑10 hrs/week": 3,
-    ">10 hrs/week": 4,
-}
+# Load trained machine learning model
+model = joblib.load("models/best_classifier_setup_d.joblib")
+template = pd.read_csv("data/sample_student.csv").iloc[0].to_dict()
 
-def predict(study, failures, gender, age):
-    """Very naive rule‑based prediction.
+def predict_student(gender, age, studytime, failures, goout, internet, higher):
+    # Prepare feature row
+    data = template.copy()
+    data["sex"] = "M" if gender == "Male" else "F"
+    data["age"] = int(age)
+    data["studytime"] = int(studytime)
+    data["failures"] = int(failures)
+    data["goout"] = int(goout)
+    data["internet"] = "yes" if internet == "Yes" else "no"
+    data["higher"] = "yes" if higher == "Yes" else "no"
 
-    The logic is deliberately simple so a beginner can see how the
-    calculation works.
-    """
-    # Start with a base score
-    score = 0
-    # Study time contributes positively
-    score += STUDY_MAP.get(study, 0) * 10
-    # More past failures hurt the score
-    score -= int(failures) * 15
-    # Small gender bonus (just for demo purposes)
-    if gender == "Female":
-        score += 5
-    # Younger students get a small bump
-    score += max(0, 25 - int(age))
-    # Clamp to 0‑100
-    prob = max(0, min(100, score))
-    status = "PASS" if prob >= 50 else "FAIL / AT RISK"
-    return f"Status: {status}\nPass probability: {prob}%"
+    df = pd.DataFrame([data])
+    prob_pass = model.predict_proba(df)[0][1]
 
-# Simple UI – four inputs only
-with gr.Blocks() as demo:
-    gr.Markdown("# Student Performance Predictor (Beginner, No AI)")
-    study = gr.Dropdown(list(STUDY_MAP.keys()), label="Study time per week")
-    failures = gr.Slider(0, 3, step=1, label="Number of past failures")
-    gender = gr.Radio(["Male", "Female"], label="Gender")
-    age = gr.Slider(15, 25, step=1, label="Age")
-    btn = gr.Button("Predict")
-    out = gr.Textbox(label="Result")
-    btn.click(predict, inputs=[study, failures, gender, age], outputs=out)
+    if prob_pass >= 0.5:
+        return f"Result: PASS\nPass Probability: {prob_pass * 100:.1f}%\nStatus: On Track"
+    else:
+        return f"Result: AT RISK OF FAILING\nPass Probability: {prob_pass * 100:.1f}%\nStatus: Needs Academic Support"
+
+# Inputs for student evaluation
+inputs = [
+    gr.Radio(["Female", "Male"], label="Gender", value="Female"),
+    gr.Slider(15, 22, value=17, step=1, label="Age"),
+    gr.Slider(1, 4, value=2, step=1, label="Study Time (1: <2h, 2: 2-5h, 3: 5-10h, 4: >10h)"),
+    gr.Slider(0, 4, value=0, step=1, label="Past Failures (0 to 4)"),
+    gr.Slider(1, 5, value=3, step=1, label="Going Out with Friends (1: Low to 5: High)"),
+    gr.Radio(["Yes", "No"], label="Internet Access", value="Yes"),
+    gr.Radio(["Yes", "No"], label="Plans for Higher Education", value="Yes"),
+]
+
+demo = gr.Interface(
+    fn=predict_student,
+    inputs=inputs,
+    outputs=gr.Textbox(label="Prediction Output", lines=4),
+    title="Student Academic Performance Prediction",
+    description="Machine Learning assignment project to predict student pass/fail risk based on habits and background."
+)
 
 if __name__ == "__main__":
-    # Local launch; set share=True for a public link
     demo.launch(server_name="0.0.0.0", server_port=7860, share=False)
