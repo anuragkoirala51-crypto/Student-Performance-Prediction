@@ -156,7 +156,7 @@ def render_result_gauge(prob, pred_grade, status_text, status_color, risk_level,
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px;">
         <div style="background: #0f172a; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #334155;">
           <div style="font-size: 11px; color: #94a3b8; font-weight: 500;">PREDICTED GRADE</div>
-          <div style="font-size: 20px; font-weight: 700; color: #38bdf8; margin-top: 2px;">{pred_grade:.1f} <span style="font-size: 12px; color: #94a3b8;">/ 20</span></div>
+          <div style="font-size: 20px; font-weight: 700; color: #38bdf8; margin-top: 2px;">{pred_grade:.1f} <span style="font-size: 12px; color: #94a3b8;">/ 10</span></div>
         </div>
         <div style="background: #0f172a; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #334155;">
           <div style="font-size: 11px; color: #94a3b8; font-weight: 500;">ACADEMIC RISK</div>
@@ -207,18 +207,22 @@ def predict(
 
         df_input = pd.DataFrame([data])
         prob = clf_midterm.predict_proba(df_input)[0][1] * 100
-        pred_grade = 0.5 * (g1_scaled + g2_scaled)
+        # Convert 0-20 scale marks to 0-10 scale
+        pred_grade = (0.5 * (g1_scaled + g2_scaled)) / 2.0
+        pred_grade = max(0.0, min(10.0, pred_grade))
 
         notes.append(f"Evaluated with Term 1 ({term1_score}/10) and Mid-Term ({midterm_score}/30).")
         if g2_scaled >= 12:
             notes.append("Internal exam marks show steady passing performance.")
         elif g2_scaled < 10:
-            notes.append("Internal exam marks are below passing line; extra revision recommended.")
+            notes.append("Internal exam marks are below passing line (5/10); extra revision recommended.")
     else:
         # Pre-exam Day-0 evaluation
         df_input = pd.DataFrame([data])
         prob = clf_day0.predict_proba(df_input)[0][1] * 100
-        pred_grade = float(reg_day0.predict(df_input)[0])
+        # Convert 0-20 regressor output to 0-10 scale
+        pred_grade = float(reg_day0.predict(df_input)[0]) / 2.0
+        pred_grade = max(0.0, min(10.0, pred_grade))
 
         notes.append("Day-1 enrollment evaluation based on academic habits.")
         if STUDY_HOURS_MAP.get(study_hours, 2) >= 3:
