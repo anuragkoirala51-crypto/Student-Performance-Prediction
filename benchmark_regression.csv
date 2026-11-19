@@ -1,17 +1,17 @@
 Setup,Model,MAE,RMSE,R2
-Setup A (Full/All Features),Baseline (Mean),3.322,4.482,-0.0
-Setup A (Full/All Features),Ridge Regression,1.543,2.141,0.772
-Setup A (Full/All Features),Random Forest Regressor,1.046,1.627,0.868
-Setup A (Full/All Features),Gradient Boosting Regressor,1.106,1.714,0.854
-Setup B (Mid-Term: No G2),Baseline (Mean),3.322,4.482,-0.0
-Setup B (Mid-Term: No G2),Ridge Regression,2.17,2.837,0.599
-Setup B (Mid-Term: No G2),Random Forest Regressor,1.688,2.268,0.744
-Setup B (Mid-Term: No G2),Gradient Boosting Regressor,1.697,2.323,0.731
-Setup C (No Prior Grades),Baseline (Mean),3.322,4.482,-0.0
-Setup C (No Prior Grades),Ridge Regression,3.708,4.661,-0.082
-Setup C (No Prior Grades),Random Forest Regressor,3.041,3.979,0.212
-Setup C (No Prior Grades),Gradient Boosting Regressor,3.249,4.163,0.137
-Setup D (Day-0: True Enrolment),Baseline (Mean),3.322,4.482,-0.0
-Setup D (Day-0: True Enrolment),Ridge Regression,3.769,4.711,-0.105
-Setup D (Day-0: True Enrolment),Random Forest Regressor,3.434,4.415,0.029
-Setup D (Day-0: True Enrolment),Gradient Boosting Regressor,3.622,4.548,-0.03
+Setup A (Full/All Features),Baseline (Mean),2.811,3.802,-0.0
+Setup A (Full/All Features),Ridge Regression,1.24,1.748,0.789
+Setup A (Full/All Features),Random Forest Regressor,1.14,1.611,0.82
+Setup A (Full/All Features),Gradient Boosting Regressor,1.151,1.6,0.823
+Setup B (Mid-Term: No G2),Baseline (Mean),2.811,3.802,-0.0
+Setup B (Mid-Term: No G2),Ridge Regression,1.726,2.399,0.602
+Setup B (Mid-Term: No G2),Random Forest Regressor,1.576,2.114,0.691
+Setup B (Mid-Term: No G2),Gradient Boosting Regressor,1.609,2.165,0.676
+Setup C (No Prior Grades),Baseline (Mean),2.811,3.802,-0.0
+Setup C (No Prior Grades),Ridge Regression,2.461,3.403,0.199
+Setup C (No Prior Grades),Random Forest Regressor,2.284,3.139,0.318
+Setup C (No Prior Grades),Gradient Boosting Regressor,2.307,3.168,0.306
+Setup D (Day-0: True Enrolment),Baseline (Mean),2.811,3.802,-0.0
+Setup D (Day-0: True Enrolment),Ridge Regression,2.466,3.399,0.201
+Setup D (Day-0: True Enrolment),Random Forest Regressor,2.332,3.188,0.297
+Setup D (Day-0: True Enrolment),Gradient Boosting Regressor,2.348,3.228,0.279

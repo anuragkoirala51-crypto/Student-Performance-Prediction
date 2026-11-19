@@ -89,8 +89,12 @@ def save_fig(name):
 
 # ----------------- Data Loading -----------------
 def load_data():
-    """Load the Mathematics cohort from local directory or download directly."""
-    csv_path = os.path.join(DATA_DIR, "student-mat.csv")
+    """Load the dataset (augmented dataset if available, else combined or mat)."""
+    csv_path = os.path.join(DATA_DIR, "augmented_student.csv")
+    if not os.path.exists(csv_path):
+        csv_path = os.path.join(DATA_DIR, "combined_student.csv")
+    if not os.path.exists(csv_path):
+        csv_path = os.path.join(DATA_DIR, "student-mat.csv")
     if not os.path.exists(csv_path):
         import urllib.request, zipfile, io
         url = "https://archive.ics.uci.edu/static/public/320/student+performance.zip"
@@ -105,6 +109,7 @@ def load_data():
             with zipfile.ZipFile(inner_zip_path) as inner_zip:
                 inner_zip.extractall(DATA_DIR)
 
+    print(f"Loading data from: {csv_path}")
     df = pd.read_csv(csv_path, sep=";") if ";" in open(csv_path).readline() else pd.read_csv(csv_path)
     df["pass"] = (df["G3"] >= PASS_MARK).astype(int)
     print(f"Dataset successfully loaded: {df.shape[0]} students, {df.shape[1]} columns.")
