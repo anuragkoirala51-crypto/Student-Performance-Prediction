@@ -11,7 +11,7 @@ augmented_path = os.path.join(data_dir, "augmented_student.csv")
 df = pd.read_csv(combined_path, sep="," if "," in open(combined_path).readline() else ";")
 
 # Number of extra rows to add (e.g., make total ~3000 rows)
-TARGET_ROWS = 5000
+TARGET_ROWS = 10000
 extra = TARGET_ROWS - len(df)
 if extra > 0:
     # Sample with replacement and add small noise to numeric columns
