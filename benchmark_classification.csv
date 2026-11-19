@@ -1,17 +1,17 @@
 Setup,Model,Accuracy,Fail_Recall,Fail_Precision,Fail_F1,ROC_AUC,PR_AUC_Fail,Brier_Score
 Setup A (Full/All Features),Baseline (Majority),0.753,0.0,0.0,0.0,0.5,0.247,0.247
-Setup A (Full/All Features),Logistic Regression,0.87,0.885,0.682,0.77,0.951,0.874,0.092
-Setup A (Full/All Features),Random Forest Classifier,0.866,0.913,0.667,0.771,0.949,0.855,0.109
+Setup A (Full/All Features),Logistic Regression,0.882,0.735,0.777,0.755,0.951,0.876,0.077
+Setup A (Full/All Features),Random Forest Classifier,0.883,0.672,0.824,0.74,0.951,0.877,0.084
 Setup A (Full/All Features),Gradient Boosting Classifier,0.886,0.715,0.802,0.756,0.953,0.881,0.075
 Setup B (Mid-Term: No G2),Baseline (Majority),0.753,0.0,0.0,0.0,0.5,0.247,0.247
-Setup B (Mid-Term: No G2),Logistic Regression,0.821,0.842,0.598,0.699,0.914,0.745,0.121
-Setup B (Mid-Term: No G2),Random Forest Classifier,0.821,0.889,0.591,0.71,0.912,0.764,0.146
+Setup B (Mid-Term: No G2),Logistic Regression,0.849,0.628,0.724,0.672,0.913,0.747,0.102
+Setup B (Mid-Term: No G2),Random Forest Classifier,0.842,0.421,0.874,0.568,0.918,0.804,0.11
 Setup B (Mid-Term: No G2),Gradient Boosting Classifier,0.86,0.63,0.762,0.69,0.922,0.809,0.096
 Setup C (No Prior Grades),Baseline (Majority),0.753,0.0,0.0,0.0,0.5,0.247,0.247
-Setup C (No Prior Grades),Logistic Regression,0.708,0.646,0.438,0.522,0.756,0.509,0.198
-Setup C (No Prior Grades),Random Forest Classifier,0.783,0.587,0.559,0.573,0.819,0.642,0.192
+Setup C (No Prior Grades),Logistic Regression,0.786,0.294,0.647,0.404,0.75,0.515,0.155
+Setup C (No Prior Grades),Random Forest Classifier,0.807,0.253,0.887,0.394,0.837,0.682,0.141
 Setup C (No Prior Grades),Gradient Boosting Classifier,0.797,0.312,0.703,0.432,0.797,0.619,0.143
 Setup D (Day-0: True Enrolment),Baseline (Majority),0.753,0.0,0.0,0.0,0.5,0.247,0.247
-Setup D (Day-0: True Enrolment),Logistic Regression,0.708,0.64,0.437,0.519,0.75,0.515,0.2
-Setup D (Day-0: True Enrolment),Random Forest Classifier,0.785,0.611,0.559,0.584,0.818,0.641,0.193
+Setup D (Day-0: True Enrolment),Logistic Regression,0.782,0.283,0.633,0.392,0.745,0.521,0.156
+Setup D (Day-0: True Enrolment),Random Forest Classifier,0.804,0.245,0.864,0.382,0.839,0.682,0.141
 Setup D (Day-0: True Enrolment),Gradient Boosting Classifier,0.792,0.277,0.703,0.398,0.788,0.605,0.146

@@ -231,8 +231,8 @@ def evaluate_setups(df):
         # Classification Models
         clf_models = {
             "Baseline (Majority)": DummyClassifier(strategy="most_frequent"),
-            "Logistic Regression": LogisticRegression(class_weight="balanced", max_iter=1000, random_state=SEED),
-            "Random Forest Classifier": RandomForestClassifier(n_estimators=150, max_depth=5, class_weight="balanced", random_state=SEED),
+            "Logistic Regression": LogisticRegression(max_iter=1000, random_state=SEED),
+            "Random Forest Classifier": RandomForestClassifier(n_estimators=150, max_depth=6, random_state=SEED),
             "Gradient Boosting Classifier": GradientBoostingClassifier(n_estimators=100, learning_rate=0.05, max_depth=3, random_state=SEED)
         }
         if HAS_XGB:
