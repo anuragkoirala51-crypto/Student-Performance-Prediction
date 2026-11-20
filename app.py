@@ -9,6 +9,7 @@ MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
 clf_day0 = joblib.load(os.path.join(MODEL_DIR, "best_classifier_setup_d.joblib"))
 clf_midterm = joblib.load(os.path.join(MODEL_DIR, "best_classifier_setup_a.joblib"))
 reg_day0 = joblib.load(os.path.join(MODEL_DIR, "best_regressor_setup_d.joblib"))
+reg_midterm = joblib.load(os.path.join(MODEL_DIR, "best_regressor_setup_a.joblib"))
 
 # Study hours mapping to numeric model tiers (1: <2h, 2: 2-5h, 3: 5-10h, 4: >10h)
 STUDY_HOURS_MAP = {
@@ -20,6 +21,29 @@ STUDY_HOURS_MAP = {
     "16–20 hours": 4,
     "21–30 hours": 4,
     "30+ hours": 4,
+}
+
+# Fine-grained study adjustments beyond 4 broad tiers
+STUDY_FINE_TUNE_MIDTERM = {
+    "0 hours": -0.4,
+    "1–2 hours": -0.15,
+    "3–5 hours": 0.0,
+    "6–10 hours": 0.25,
+    "11–15 hours": 0.45,
+    "16–20 hours": 0.65,
+    "21–30 hours": 0.85,
+    "30+ hours": 1.0,
+}
+
+STUDY_FINE_TUNE_DAY0 = {
+    "0 hours": -0.5,
+    "1–2 hours": -0.2,
+    "3–5 hours": 0.0,
+    "6–10 hours": 0.35,
+    "11–15 hours": 0.6,
+    "16–20 hours": 0.85,
+    "21–30 hours": 1.1,
+    "30+ hours": 1.3,
 }
 
 # Neutral default background features so ML pipeline receives valid complete inputs
@@ -191,78 +215,93 @@ def predict(
     failures_num = int(failures)
     absences_num = int(absences)
 
-    # Prepare input row for model pipeline
+    # Prepare input profile for trained ML pipelines
     data = DEFAULT_STUDENT_PROFILE.copy()
     data["studytime"] = study_tier
     data["failures"] = min(failures_num, 4)
+    data["absences"] = absences_num
     data["paid"] = "yes" if paid_tutoring == "Yes" else "no"
     data["schoolsup"] = "yes" if academic_support == "Yes" else "no"
 
     notes = []
 
-    # Dynamic behavior based on stage
     if "Mid-Semester" in evaluation_stage:
-        # Term 1 is out of 10, Mid-Term is out of 30
-        t1_val = float(term1_score)
-        mt_val = float(midterm_score) / 3.0  # normalized to 0-10 scale
-        base_grade = 0.4 * t1_val + 0.6 * mt_val
+        # Scale internal exams to 0-20 scale for model pipeline
+        g1_scaled = (float(term1_score) / 10.0) * 20.0
+        g2_scaled = (float(midterm_score) / 30.0) * 20.0
+        data["G1"] = g1_scaled
+        data["G2"] = g2_scaled
 
-        # Realistic academic factor adjustments
-        study_bonus = {1: -0.3, 2: 0.0, 3: 0.3, 4: 0.5}[study_tier]
-        backlog_penalty = -0.4 * min(failures_num, 4)
-        absence_penalty = -0.04 * min(absences_num, 25)
-        aid_bonus = (0.2 if paid_tutoring == "Yes" else 0.0) + (0.2 if academic_support == "Yes" else 0.0)
-
-        pred_grade = base_grade + study_bonus + backlog_penalty + absence_penalty + aid_bonus
-        notes.append(f"Evaluated with Term 1 ({term1_score}/10) and Mid-Term ({midterm_score}/30).")
-
-        if pred_grade >= 6.5:
-            notes.append("Internal exam marks show solid passing trajectory.")
-        elif pred_grade >= 5.0:
-            notes.append("Internal exam marks are near passing threshold (5.0/10); extra revision advised.")
-        else:
-            notes.append("Internal exam marks are currently below passing line (5.0/10); urgent support required.")
-    else:
-        # Pre-exam Day-0 evaluation using ML regressor
         df_input = pd.DataFrame([data])
-        reg_grade = float(reg_day0.predict(df_input)[0]) / 2.0  # scale to 0-10
+        raw_prob = float(clf_midterm.predict_proba(df_input)[0][1]) * 100.0
+        ml_grade = float(reg_midterm.predict(df_input)[0]) / 2.0  # Scale 0-20 down to 0-10
 
-        study_bonus = {1: -0.9, 2: 0.0, 3: 0.5, 4: 0.8}[study_tier]
-        backlog_penalty = -0.7 * min(failures_num, 4)
-        absence_penalty = -0.05 * min(absences_num, 25)
-        aid_bonus = (0.3 if paid_tutoring == "Yes" else 0.0) + (0.3 if academic_support == "Yes" else 0.0)
+        # Exam component weighting (Term 1 = 35%, Mid-Term = 50%)
+        exam_base = (0.35 * float(term1_score) + 0.50 * (float(midterm_score) / 3.0)) / 0.85
+        combined_grade = 0.55 * exam_base + 0.45 * ml_grade
 
-        pred_grade = reg_grade + study_bonus + backlog_penalty + absence_penalty + aid_bonus
-        notes.append("Day-1 enrollment evaluation based on academic habits and records.")
+        # Fine-grained study bonus and backlog adjustment
+        study_bonus = STUDY_FINE_TUNE_MIDTERM.get(study_hours, 0.0)
+        extra_fail = -0.25 * (failures_num - 4) if failures_num > 4 else 0.0
+        pred_grade = np.clip(combined_grade + study_bonus + extra_fail, 0.0, 10.0)
 
-        if pred_grade >= 6.5:
-            notes.append("Baseline profile indicates low academic risk for the semester.")
+        # Calibrated pass probability centered at 5.0 passing mark
+        grade_prob = 100.0 / (1.0 + np.exp(-1.30 * (pred_grade - 5.0)))
+        prob = 0.35 * raw_prob + 0.65 * grade_prob
+        prob = float(np.clip(prob, 1.0, 99.5))
+
+        notes.append(f"Evaluated with Term 1 ({term1_score}/10) and Mid-Term ({midterm_score}/30).")
+        if pred_grade >= 7.0:
+            notes.append("Internal exam scores demonstrate strong grasp of coursework.")
         elif pred_grade >= 5.0:
-            notes.append("Borderline academic profile; consistent effort required to secure pass.")
+            notes.append("Internal scores are near passing cutoff (5.0/10); extra revision advised.")
         else:
-            notes.append("High-risk profile due to previous backlogs or insufficient study hours.")
+            notes.append("Internal exam marks are currently below passing line (5.0/10); remedial action required.")
 
-    # Clamp grade to valid range [0.0, 10.0]
-    pred_grade = max(0.0, min(10.0, pred_grade))
+    else:
+        # Semester Start (Day-1 Enrolment / Pre-Exam)
+        df_input = pd.DataFrame([data])
+        raw_prob = float(clf_day0.predict_proba(df_input)[0][1]) * 100.0
+        ml_grade = float(reg_day0.predict(df_input)[0]) / 2.0  # Scale 0-20 down to 0-10
 
-    # Well-calibrated pass probability centered at 5.0 passing mark
-    prob = 100.0 / (1.0 + np.exp(-1.35 * (pred_grade - 5.0)))
-    prob = max(0.5, min(99.5, prob))
+        study_bonus = STUDY_FINE_TUNE_DAY0.get(study_hours, 0.0)
+        extra_fail = -0.35 * (failures_num - 4) if failures_num > 4 else 0.0
+        extra_abs = -0.02 * max(0, absences_num - 5)
+        pred_grade = np.clip(ml_grade + study_bonus + extra_fail + extra_abs, 0.0, 10.0)
+
+        grade_prob = 100.0 / (1.0 + np.exp(-1.30 * (pred_grade - 5.0)))
+        prob = 0.35 * raw_prob + 0.65 * grade_prob
+        prob = float(np.clip(prob, 1.0, 99.5))
+
+        notes.append("Day-1 enrollment evaluation based on academic background and study plan.")
+        if pred_grade >= 7.0:
+            notes.append("Baseline profile indicates high probability of semester success.")
+        elif pred_grade >= 5.0:
+            notes.append("Academic foundation is moderate; steady study habits will secure passing grade.")
+        else:
+            notes.append("Profile shows elevated risk; early tutoring and strict attendance advised.")
 
     # Habit notes
     if study_tier <= 1:
-        notes.append(f"Study schedule ({study_hours}) is low; increasing self-study hours is recommended.")
+        notes.append(f"Weekly study time ({study_hours}) is low; increasing dedicated revision will improve results.")
     elif study_tier >= 3:
-        notes.append(f"Consistent study schedule ({study_hours}) helps maintain academic momentum.")
+        notes.append(f"Consistent study schedule ({study_hours}) provides solid academic momentum.")
 
     if failures_num > 0:
-        notes.append(f"Student has {failures_num} backlog/failed subject(s) to clear.")
+        notes.append(f"Student has {failures_num} past backlog/failed subject(s) requiring remediation.")
 
     if absences_num > 8:
-        notes.append(f"Recorded absences ({absences_num} days) increase risk of missing core concepts.")
+        notes.append(f"Recorded absences ({absences_num} days) elevate risk of missing foundational lecture concepts.")
 
-    # Status classification strictly matching the predicted grade
-    if pred_grade >= 6.5:
+    if paid_tutoring == "Yes" or academic_support == "Yes":
+        notes.append("Academic tutoring / remedial support boosts student confidence and comprehension.")
+
+    # Status classification strictly matching the predicted grade and risk tier
+    if pred_grade >= 8.0:
+        status_text = "HIGH PASS"
+        status_color = "#10b981"  # Emerald green
+        risk_level = "Very Low Risk"
+    elif pred_grade >= 6.45:
         status_text = "PASS"
         status_color = "#10b981"  # Emerald green
         risk_level = "Low Risk"

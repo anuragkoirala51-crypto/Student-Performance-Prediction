@@ -554,6 +554,9 @@ def main():
     best_reg_d = pipelines["reg_Setup D (Day-0: True Enrolment)_Random Forest Regressor"]
     joblib.dump(best_reg_d, os.path.join(MODEL_DIR, "best_regressor_setup_d.joblib"))
 
+    reg_a = pipelines["reg_Setup A (Full/All Features)_Random Forest Regressor"]
+    joblib.dump(reg_a, os.path.join(MODEL_DIR, "best_regressor_setup_a.joblib"))
+
     # Save a template student row for demo testing
     sample_student = test_df.iloc[[0]].drop(columns=["G3", "pass"] + SETUPS["Setup D (Day-0: True Enrolment)"])
     sample_student.to_csv("data/sample_student.csv", index=False)

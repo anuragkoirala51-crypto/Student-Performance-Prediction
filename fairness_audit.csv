@@ -1,5 +1,5 @@
 Attribute,Group,Count,Base Fail Rate,Model Flag Rate,Fail Recall (TPR),False Alarm Rate (FPR)
-sex,F,1171,23.4%,46.5%,81.4%,35.9%
-sex,M,829,26.5%,50.8%,90.0%,36.6%
-address,R,561,34.8%,74.3%,93.8%,63.9%
-address,U,1439,20.8%,38.2%,79.6%,27.3%
+sex,F,1169,33.4%,47.6%,83.9%,29.4%
+sex,M,831,41.4%,66.2%,96.5%,44.8%
+address,U,1415,33.4%,49.1%,85.2%,31.0%
+address,R,585,44.8%,70.4%,98.1%,48.0%
