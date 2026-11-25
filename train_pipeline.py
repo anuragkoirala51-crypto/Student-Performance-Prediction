@@ -1,6 +1,6 @@
 """
 Student performance prediction — training pipeline
-ML course project, written to train classifiers + regressors
+ML & DL course project, written to train classifiers + regressors
 across different feature setups and save the best ones for the web app.
 """
 

@@ -1,10 +1,10 @@
 # Student Performance Early Warning System
 
-**Anurag Koirala | Roll No: ECB24030 | ML / AIML Coursework**
+**Anurag Koirala | Roll No: ECB24030 | ML & DL Coursework**
 
 ---
 
-This was my semester project for the Machine Learning course. The idea was to build something that actually makes sense for a real school — a system that flags students who might fail *before* they fail, not after the fact.
+This was my semester project for the Machine Learning & Deep Learning course. The idea was to build something that actually makes sense for a real school — a system that flags students who might fail *before* they fail, not after the fact.
 
 The dataset is the UCI Student Performance dataset (Cortez, 2008), which is pretty commonly used for ML projects. The issue with most implementations I found online is that they just dump all the features in and get 90%+ accuracy, but that includes G2 (the second term grade) which is recorded literally 2 weeks before the final. That's not early warning, that's just... grading. So I tried to do it properly.
 

@@ -1,5 +1,5 @@
 # Student Project and Presentation Guide
-### Machine Learning College Coursework Project
+### Machine Learning & Deep Learning College Coursework Project
 **Student Name:** Anurag Koirala  
 **Roll Number:** ECB24030  
 **Project:** Student Academic Performance Prediction System  
@@ -64,7 +64,7 @@ Most standard student projects analyzing the Cortez (2008) dataset make a critic
 
 ## 4. Two-Minute Presentation Script (By Anurag Koirala - ECB24030)
 
-> "Good morning. My name is Anurag Koirala (Roll No: ECB24030), and my college coursework project is a Machine Learning System for Student Academic Performance Prediction.
+> "Good morning. My name is Anurag Koirala (Roll No: ECB24030), and my college coursework project is a Machine Learning & Deep Learning System for Student Academic Performance Prediction.
 > 
 > Many standard student projects report 90%+ accuracy by simply feeding Term 2 exam marks into the model. However, because Term 2 takes place just before finals, that isn't true early prediction—it's just reading report cards when it's already too late to intervene.
 > 

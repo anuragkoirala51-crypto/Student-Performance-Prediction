@@ -25,7 +25,7 @@ def add_code(source):
 
 
 add_md("""# Student Performance Early Warning System
-### Machine Learning Assignment Project
+### Machine Learning & Deep Learning Assignment Project
 **Student Name:** Anurag Koirala  
 **Roll Number:** ECB24030  
 **Dataset:** UCI Student Performance Benchmark (Cortez, 2008), doi:10.24432/C5TG7T  
