@@ -20,7 +20,10 @@ STUDY_HOURS_MAP = {
     "11–15 hours": 4,
     "16–20 hours": 4,
     "21–30 hours": 4,
-    "30+ hours": 4,
+    "31–40 hours": 4,
+    "41–55 hours": 4,
+    "56–70 hours": 4,
+    "70+ hours": 4,
 }
 
 # fine-tune offsets because the 4-tier bucketing loses too much resolution
@@ -32,7 +35,10 @@ STUDY_FINE_TUNE_MIDTERM = {
     "11–15 hours": 0.45,
     "16–20 hours": 0.65,
     "21–30 hours": 0.85,
-    "30+ hours": 1.0,
+    "31–40 hours": 1.05,
+    "41–55 hours": 1.25,
+    "56–70 hours": 1.4,
+    "70+ hours": 1.5,
 }
 
 STUDY_FINE_TUNE_DAY0 = {
@@ -43,7 +49,10 @@ STUDY_FINE_TUNE_DAY0 = {
     "11–15 hours": 0.6,
     "16–20 hours": 0.85,
     "21–30 hours": 1.1,
-    "30+ hours": 1.3,
+    "31–40 hours": 1.35,
+    "41–55 hours": 1.6,
+    "56–70 hours": 1.8,
+    "70+ hours": 2.0,
 }
 
 # default profile so we always send a complete row to the pipeline
@@ -370,10 +379,13 @@ with gr.Blocks(css=CUSTOM_CSS, title="Student Academic Performance Prediction") 
                             "11–15 hours",
                             "16–20 hours",
                             "21–30 hours",
-                            "30+ hours",
+                            "31–40 hours",
+                            "41–55 hours",
+                            "56–70 hours",
+                            "70+ hours",
                         ],
                         value="6–10 hours",
-                        label="Weekly Study Hours",
+                        label="Weekly Study Hours (out of 168h/week)",
                     )
                     failures = gr.Slider(
                         minimum=0,
