@@ -4,14 +4,14 @@ import numpy as np
 import pandas as pd
 import gradio as gr
 
-# Load models from training pipeline
+# loading the models we saved from train_pipeline
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
 clf_day0 = joblib.load(os.path.join(MODEL_DIR, "best_classifier_setup_d.joblib"))
 clf_midterm = joblib.load(os.path.join(MODEL_DIR, "best_classifier_setup_a.joblib"))
 reg_day0 = joblib.load(os.path.join(MODEL_DIR, "best_regressor_setup_d.joblib"))
 reg_midterm = joblib.load(os.path.join(MODEL_DIR, "best_regressor_setup_a.joblib"))
 
-# Study hours mapping to numeric model tiers (1: <2h, 2: 2-5h, 3: 5-10h, 4: >10h)
+# the model only takes 4 broad tiers so map the dropdown to 1-4
 STUDY_HOURS_MAP = {
     "0 hours": 1,
     "1–2 hours": 1,
@@ -23,7 +23,7 @@ STUDY_HOURS_MAP = {
     "30+ hours": 4,
 }
 
-# Fine-grained study adjustments beyond 4 broad tiers
+# fine-tune offsets because the 4-tier bucketing loses too much resolution
 STUDY_FINE_TUNE_MIDTERM = {
     "0 hours": -0.4,
     "1–2 hours": -0.15,
@@ -46,7 +46,8 @@ STUDY_FINE_TUNE_DAY0 = {
     "30+ hours": 1.3,
 }
 
-# Neutral default background features so ML pipeline receives valid complete inputs
+# default profile so we always send a complete row to the pipeline
+# using pretty average values — not sure if this is the best approach but it works
 DEFAULT_STUDENT_PROFILE = {
     "school": "GP",
     "sex": "F",
@@ -79,7 +80,8 @@ DEFAULT_STUDENT_PROFILE = {
     "health": 4,
 }
 
-# Custom styling for clean, readable, college-project look
+# CSS — dark theme, tried to keep it clean
+# the orange button was a last-minute design choice but it looks good tbh
 CUSTOM_CSS = """
 /* Center and widen main container */
 .gradio-container {
@@ -88,7 +90,6 @@ CUSTOM_CSS = """
     padding: 20px 24px !important;
 }
 
-/* Header typography */
 .header-box h1 {
     font-size: 24px !important;
     font-weight: 700 !important;
@@ -101,7 +102,7 @@ CUSTOM_CSS = """
     margin-bottom: 14px !important;
 }
 
-/* Form sections */
+/* cards for each form section */
 .form-card {
     background: #1e293b !important;
     border: 1px solid #334155 !important;
@@ -110,14 +111,12 @@ CUSTOM_CSS = """
     margin-bottom: 12px !important;
 }
 
-/* Label readability */
 label span {
     font-size: 13px !important;
     font-weight: 600 !important;
     color: #e2e8f0 !important;
 }
 
-/* Sliders and inputs */
 input[type="range"] {
     accent-color: #f97316 !important;
 }
@@ -140,7 +139,6 @@ input[type="range"] {
     background-color: #ea580c !important;
 }
 
-/* Responsive adjustment for small screens */
 @media (max-width: 768px) {
     .gradio-container {
         padding: 12px !important;
@@ -149,8 +147,7 @@ input[type="range"] {
 """
 
 def render_result_gauge(prob, pred_grade, status_text, status_color, risk_level, notes):
-    """Draw circular score meter and clear summary card."""
-    # Semi-circle gauge (radius 80, half circumference = 251.3)
+    # semi-circle gauge — radius 80, half circumference is 251.3
     arc_len = 251.3
     offset = arc_len * (1.0 - (prob / 100.0))
     offset = max(0, min(arc_len, offset))
@@ -215,10 +212,10 @@ def predict(
     failures_num = int(failures)
     absences_num = int(absences)
 
-    # Prepare input profile for trained ML pipelines
+    # start from the default profile and patch in what the user gave us
     data = DEFAULT_STUDENT_PROFILE.copy()
     data["studytime"] = study_tier
-    data["failures"] = min(failures_num, 4)
+    data["failures"] = min(failures_num, 4)  # model was trained with max 4
     data["absences"] = absences_num
     data["paid"] = "yes" if paid_tutoring == "Yes" else "no"
     data["schoolsup"] = "yes" if academic_support == "Yes" else "no"
@@ -226,7 +223,7 @@ def predict(
     notes = []
 
     if "Mid-Semester" in evaluation_stage:
-        # Scale internal exams to 0-20 scale for model pipeline
+        # scale scores up to 0-20 range that the model was trained on
         g1_scaled = (float(term1_score) / 10.0) * 20.0
         g2_scaled = (float(midterm_score) / 30.0) * 20.0
         data["G1"] = g1_scaled
@@ -234,18 +231,18 @@ def predict(
 
         df_input = pd.DataFrame([data])
         raw_prob = float(clf_midterm.predict_proba(df_input)[0][1]) * 100.0
-        ml_grade = float(reg_midterm.predict(df_input)[0]) / 2.0  # Scale 0-20 down to 0-10
+        ml_grade = float(reg_midterm.predict(df_input)[0]) / 2.0  # bring 0-20 down to 0-10
 
-        # Exam component weighting (Term 1 = 35%, Mid-Term = 50%)
+        # weight the actual exam scores (term1=35%, midterm=50%)
+        # this blending took some trial and error to get right
         exam_base = (0.35 * float(term1_score) + 0.50 * (float(midterm_score) / 3.0)) / 0.85
         combined_grade = 0.55 * exam_base + 0.45 * ml_grade
 
-        # Fine-grained study bonus and backlog adjustment
         study_bonus = STUDY_FINE_TUNE_MIDTERM.get(study_hours, 0.0)
         extra_fail = -0.25 * (failures_num - 4) if failures_num > 4 else 0.0
         pred_grade = np.clip(combined_grade + study_bonus + extra_fail, 0.0, 10.0)
 
-        # Calibrated pass probability centered at 5.0 passing mark
+        # sigmoid centered at 5.0 (passing mark), then blend with raw model prob
         grade_prob = 100.0 / (1.0 + np.exp(-1.30 * (pred_grade - 5.0)))
         prob = 0.35 * raw_prob + 0.65 * grade_prob
         prob = float(np.clip(prob, 1.0, 99.5))
@@ -259,14 +256,14 @@ def predict(
             notes.append("Internal exam marks are currently below passing line (5.0/10); remedial action required.")
 
     else:
-        # Semester Start (Day-1 Enrolment / Pre-Exam)
+        # day-0 path — no exam scores available, going purely off background features
         df_input = pd.DataFrame([data])
         raw_prob = float(clf_day0.predict_proba(df_input)[0][1]) * 100.0
-        ml_grade = float(reg_day0.predict(df_input)[0]) / 2.0  # Scale 0-20 down to 0-10
+        ml_grade = float(reg_day0.predict(df_input)[0]) / 2.0  # scale 0-20 -> 0-10
 
         study_bonus = STUDY_FINE_TUNE_DAY0.get(study_hours, 0.0)
         extra_fail = -0.35 * (failures_num - 4) if failures_num > 4 else 0.0
-        extra_abs = -0.02 * max(0, absences_num - 5)
+        extra_abs = -0.02 * max(0, absences_num - 5)  # penalise absences above 5
         pred_grade = np.clip(ml_grade + study_bonus + extra_fail + extra_abs, 0.0, 10.0)
 
         grade_prob = 100.0 / (1.0 + np.exp(-1.30 * (pred_grade - 5.0)))
@@ -281,7 +278,7 @@ def predict(
         else:
             notes.append("Profile shows elevated risk; early tutoring and strict attendance advised.")
 
-    # Habit notes
+    # study habit notes
     if study_tier <= 1:
         notes.append(f"Weekly study time ({study_hours}) is low; increasing dedicated revision will improve results.")
     elif study_tier >= 3:
@@ -296,32 +293,31 @@ def predict(
     if paid_tutoring == "Yes" or academic_support == "Yes":
         notes.append("Academic tutoring / remedial support boosts student confidence and comprehension.")
 
-    # Status classification strictly matching the predicted grade and risk tier
+    # figure out which status bucket the grade falls into
     if pred_grade >= 8.0:
         status_text = "HIGH PASS"
-        status_color = "#10b981"  # Emerald green
+        status_color = "#10b981"  # green
         risk_level = "Very Low Risk"
     elif pred_grade >= 6.45:
         status_text = "PASS"
-        status_color = "#10b981"  # Emerald green
+        status_color = "#10b981"
         risk_level = "Low Risk"
     elif pred_grade >= 5.0:
         status_text = "BORDERLINE PASS"
-        status_color = "#f59e0b"  # Amber
+        status_color = "#f59e0b"  # amber
         risk_level = "Moderate Risk"
     else:
         status_text = "AT RISK OF FAILING"
-        status_color = "#ef4444"  # Red
+        status_color = "#ef4444"  # red
         risk_level = "High Risk"
 
     return render_result_gauge(prob, pred_grade, status_text, status_color, risk_level, notes)
 
 def toggle_exam_inputs(stage):
-    """Dynamically toggle visibility of exam score inputs based on evaluation stage."""
     is_midterm = "Mid-Semester" in stage
     return gr.update(visible=is_midterm)
 
-# ----------------- Gradio UI -----------------
+# gradio layout
 with gr.Blocks(css=CUSTOM_CSS, title="Student Academic Performance Prediction") as demo:
     with gr.Column(elem_classes="header-box"):
         gr.Markdown(
@@ -332,9 +328,7 @@ with gr.Blocks(css=CUSTOM_CSS, title="Student Academic Performance Prediction") 
         )
 
     with gr.Row(equal_height=False):
-        # Left Column: Input Form (scale=3)
         with gr.Column(scale=3):
-            # 1. Evaluation Timing
             with gr.Column(elem_classes="form-card"):
                 evaluation_stage = gr.Radio(
                     [
@@ -345,7 +339,6 @@ with gr.Blocks(css=CUSTOM_CSS, title="Student Academic Performance Prediction") 
                     label="Evaluation Stage",
                 )
 
-            # 2. Academic Habits
             with gr.Column(elem_classes="form-card"):
                 gr.Markdown("**Academic Habits & Attendance**")
                 with gr.Row():
@@ -379,7 +372,7 @@ with gr.Blocks(css=CUSTOM_CSS, title="Student Academic Performance Prediction") 
                     label="Semester Absences (Days)",
                 )
 
-                # Mid-Term Exam Scores (visible only when Mid-Semester is chosen)
+                # only show exam inputs when mid-semester is selected
                 with gr.Row(visible=False) as exam_scores_row:
                     term1_score = gr.Slider(
                         minimum=0,
@@ -396,7 +389,6 @@ with gr.Blocks(css=CUSTOM_CSS, title="Student Academic Performance Prediction") 
                         label="Mid-Term Exam Score (0–30 marks)",
                     )
 
-            # 3. Support & Tutoring
             with gr.Column(elem_classes="form-card"):
                 gr.Markdown("**Support & Tutoring**")
                 with gr.Row():
@@ -413,7 +405,6 @@ with gr.Blocks(css=CUSTOM_CSS, title="Student Academic Performance Prediction") 
 
             submit_btn = gr.Button("Predict Performance", elem_id="predict-btn", size="lg")
 
-        # Right Column: Prediction Result Panel (scale=2)
         with gr.Column(scale=2):
             gr.Markdown("**Prediction Result**")
             result_output = gr.HTML(
@@ -427,14 +418,12 @@ with gr.Blocks(css=CUSTOM_CSS, title="Student Academic Performance Prediction") 
                 """
             )
 
-    # Dynamic toggle for exam scores row
     evaluation_stage.change(
         fn=toggle_exam_inputs,
         inputs=evaluation_stage,
         outputs=exam_scores_row,
     )
 
-    # Prediction trigger
     input_components = [
         evaluation_stage,
         study_hours,

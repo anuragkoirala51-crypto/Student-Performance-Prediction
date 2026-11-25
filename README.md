@@ -1,111 +1,105 @@
-# Student Academic Performance Prediction System
-### Machine Learning College Coursework Project
+# Student Performance Early Warning System
 
-**Author:** Anurag Koirala  
-**Roll Number:** ECB24030  
-**Course:** Machine Learning / AIML  
-**Dataset:** [UCI Student Performance Benchmark](https://archive.ics.uci.edu/dataset/320/student+performance) (Cortez, 2008)  
-**Live Web Application:** [Access Live Demo](https://mnrrs-117-203-160-4.run.pinggy-free.link)  
+**Anurag Koirala | Roll No: ECB24030 | ML / AIML Coursework**
 
 ---
 
-## Project Overview
+This was my semester project for the Machine Learning course. The idea was to build something that actually makes sense for a real school — a system that flags students who might fail *before* they fail, not after the fact.
 
-Predicting student academic performance is a vital tool for educational institutions to provide timely academic support before final examinations take place.
-
-Most standard machine learning projects on the Cortez (2008) dataset achieve superficial accuracy (>90%) by including **Term 2 ($G2$)** exam grades. Because $G2$ is administered shortly before finals, the correlation between $G2$ and the final grade ($G3$) is **0.90**, rendering the model useless for early intervention.
-
-### Our Solution: Chronological Evaluation Setups
-This project evaluates performance across 4 realistic academic intervention points:
-
-1. **Setup D (Semester Start / Day-1):** Strictly evaluates pre-matriculation habits, past failed subjects/backlogs, and study hours without any exam grades or attendance.
-2. **Setup C (Conventional Early Warning):** Evaluates baseline attributes and attendance without prior exam marks.
-3. **Setup B (Mid-Semester Check):** Includes Term 1 exam marks ($G1$).
-4. **Setup A (Diagnostic Full Model):** Uses all features including $G1$ and $G2$.
+The dataset is the UCI Student Performance dataset (Cortez, 2008), which is pretty commonly used for ML projects. The issue with most implementations I found online is that they just dump all the features in and get 90%+ accuracy, but that includes G2 (the second term grade) which is recorded literally 2 weeks before the final. That's not early warning, that's just... grading. So I tried to do it properly.
 
 ---
 
-## Key Features & Contributions
+## What this project actually does
 
-- **Early Risk Classification:** While predicting exact continuous grades without exam history yields $R^2 \approx 0.03$, risk classification (Pass vs. Fail) achieves strong institutional separation (**ROC-AUC = 0.635** on Day 1).
-- **Teacher Capacity Optimization (Recall@K):** Under realistic advising constraints, screening the top **20% most at-risk students captures 30.8% of all eventual failures** (a **1.52x efficiency lift** over random triage).
-- **Cost-Sensitive Decision Threshold ($\theta^* = 0.28$):** Because a False Negative (missing a struggling student) is far more detrimental than a False Positive, we optimize the decision threshold to 28%, cutting institutional policy loss by **49.8%**.
-- **Interactive Gradio Web Application:** A clean, dark-themed web dashboard for testing student profiles in real time with study-time recourse simulation.
+The core idea is evaluating the model at 4 different points in a student's academic year:
+
+- **Setup D — Day 1 (semester start):** Only knows study habits, past failures, and background info. No attendance, no exam scores. This is the realistic "can we flag them before anything happens" scenario.
+- **Setup C — Early semester:** Same as D but attendance data is added.
+- **Setup B — Mid semester:** Term 1 (G1) scores are now available.
+- **Setup A — Full info:** G1 + G2 both available. This is the "easy mode" that most projects use.
+
+The finding that I'm most proud of: even at Day 1 with basically no academic performance data, a Random Forest classifier gets ROC-AUC of **0.635** and can catch **30.8% of all eventual failures** by reviewing just the top 20% riskiest students. That's a 1.52x improvement over randomly picking students to counsel.
 
 ---
 
-##  Repository Structure
+## Results
 
-```text
-├── app.py                                  # Interactive Gradio web application
-├── train_pipeline.py                       # Complete model training & evaluation pipeline
-├── Early_Warning_Student_Performance.ipynb # Standalone Google Colab-compatible notebook
-├── create_notebook.py                      # Programmatic notebook generator
-├── STUDENT_GUIDE.md                        # Presentation script and viva defense cheat sheet
-├── PROJECT_REPORT.md                       # Comprehensive academic technical report
-├── requirements.txt                        # Project dependencies
-├── benchmark_classification.csv           # Cross-validation & test metrics for classifiers
-├── benchmark_regression.csv               # Regression benchmarks across setups A-D
-├── fairness_audit.csv                      # Subgroup fairness audit across gender and location
-├── teacher_capacity_table.csv             # Recall@K evaluation table
-├── data/                                   # UCI Student Performance raw CSV data
-├── figures/                                # Publication-ready visualization charts
-│   ├── eda_comprehensive_overview.png
-│   ├── setup_degradation_comparison.png
-│   ├── teacher_capacity_curve.png
-│   ├── calibration_reliability_curve.png
-│   ├── cost_sensitive_threshold_optimization.png
-│   └── shap_summary_setup_d.png
-└── models/                                 # Serialized Scikit-Learn pipelines
-    ├── best_classifier_setup_d.joblib
-    ├── best_classifier_setup_a.joblib
-    └── best_regressor_setup_d.joblib
+### Classification (Pass vs Fail)
+
+| Setup | When | Best Model | ROC-AUC | Accuracy | Recall@Top20% |
+|---|---|---|:---:|:---:|:---:|
+| Setup D | Day 1 (no exams) | Random Forest | 0.635 | 68.4% | 30.8% |
+| Setup C | Early (no exams) | Random Forest | 0.648 | 69.6% | 34.6% |
+| Setup B | Mid-semester (G1) | Gradient Boosting | 0.812 | 75.9% | 61.5% |
+| Setup A | Late (G1 + G2) | Random Forest | 0.931 | 87.3% | 88.5% |
+
+### Regression (predicting actual grade)
+
+Honestly, regression is kind of pointless at Day 1. R² = 0.029 at Setup D, which basically means the model is useless for point prediction without exam scores. That's expected and kind of the whole point — the report covers this in detail.
+
+---
+
+## Stuff that's a bit different from typical projects
+
+**Teacher capacity curve (Recall@K):** Instead of just reporting accuracy, I simulated what happens if a school counsellor can only review 20% or 30% of students due to time constraints. The model ranks students by risk and we measure how many actual failures get caught within that budget.
+
+**Cost-sensitive threshold:** Missing a student who's going to fail is worse than a false alarm. So I optimized the decision cutoff (θ* = 0.28 instead of the default 0.50), which cuts the total "policy loss" by about 49.8%.
+
+**Fairness audit:** Ran a subgroup analysis across gender (M/F) and location (urban/rural) to check if the model is unfairly flagging one group more than another.
+
+**SHAP analysis:** Used SHAP values to figure out which features the model actually relies on for Day-1 predictions. Only reported actionable features (study time, going out, paid tutoring) rather than fixed things like parent education or address.
+
+---
+
+## Repo structure
+
+```
+├── app.py                    # Gradio web app — run this to use the predictor
+├── train_pipeline.py         # Trains all models, saves everything
+├── Early_Warning_Student_Performance.ipynb   # notebook version (works on Colab)
+├── PROJECT_REPORT.md         # full writeup with all the math
+├── STUDENT_GUIDE.md          # viva prep notes
+├── requirements.txt
+├── benchmark_classification.csv
+├── benchmark_regression.csv
+├── fairness_audit.csv
+├── teacher_capacity_table.csv
+├── data/                     # UCI dataset CSVs
+├── figures/                  # charts generated by the pipeline
+└── models/                   # saved .joblib model files
 ```
 
 ---
 
-##  Installation & Usage
+## Running it
 
-### 1. Clone the Repository
 ```bash
 git clone https://github.com/anuragkoirala51-crypto/Student-Performance-Prediction.git
 cd Student-Performance-Prediction
-```
 
-### 2. Set Up Virtual Environment & Install Dependencies
-```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Run the Training Pipeline
-Trains all regression and classification models across Setups A, B, C, D and exports serialized models and metric tables:
+To retrain all models from scratch:
 ```bash
 python train_pipeline.py
 ```
 
-### 4. Launch the Interactive Web Application
+To run the web app:
 ```bash
 python app.py
 ```
-Open **`http://localhost:7860`** in your browser to view the application.
+Then open `http://localhost:7860`. You can plug in a student's study hours, attendance, past failures etc. and it gives a predicted grade + risk level. There are two modes — Day 1 (no exam scores) and Mid-semester (with Term 1 and midterm scores).
 
 ---
 
-## Summary of Results
+## Dependencies
 
-| Setup | Stage | Classifier | ROC-AUC | Accuracy | Brier Score | Recall@20% |
-| :--- | :--- | :--- | :---: | :---: | :---: | :---: |
-| **Setup D** | Semester Start (No exams) | Random Forest | **0.635** | 68.4% | 0.208 | **30.8%** |
-| **Setup C** | Early Attendance (No exams)| Random Forest | 0.648 | 69.6% | 0.203 | 34.6% |
-| **Setup B** | Mid-Semester ($G1$) | Gradient Boosting| 0.812 | 75.9% | 0.149 | 61.5% |
-| **Setup A** | Late Diagnostic ($G1, G2$) | Random Forest | **0.931** | **87.3%** | **0.092** | **88.5%** |
+Main ones: scikit-learn, gradio, pandas, numpy, matplotlib, seaborn, shap, imbalanced-learn. Full list in `requirements.txt`. Tested on Python 3.9+.
 
 ---
 
-## Academic Submission
-
-* **Student Name:** Anurag Koirala
-* **Roll Number:** ECB24030
-* **Coursework:** Machine Learning (AIML) Assignment
+*Dataset: UCI Student Performance (Cortez & Silva, 2008) — Math subject cohort, N=395*

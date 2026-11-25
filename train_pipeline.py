@@ -1,10 +1,7 @@
 """
-Student Academic Performance Prediction - Model Training Pipeline
-Machine Learning Course Project
-
-This script loads the student dataset, trains classification and regression models
-across different feature sets (Day-0 enrolment vs Mid-term), evaluates performance,
-and saves the trained models for deployment in the web application.
+Student performance prediction — training pipeline
+ML course project, written to train classifiers + regressors
+across different feature setups and save the best ones for the web app.
 """
 
 import os
@@ -31,10 +28,9 @@ from sklearn.metrics import (
     roc_auc_score, average_precision_score, brier_score_loss, confusion_matrix
 )
 
-# Optional XGBoost import with safe fallback for systems without OpenMP
+# xgboost sometimes throws OpenMP errors on mac, so wrapping this
 try:
     import xgboost as xgb
-    # Check if libxgboost dynamic library actually works without throwing OpenMP errors
     _dummy = xgb.XGBClassifier(n_estimators=1)
     HAS_XGB = True
     print("XGBoost available and active.")
@@ -42,7 +38,6 @@ except Exception as e:
     HAS_XGB = False
     print(f"XGBoost unavailable ({type(e).__name__}); using GradientBoosting instead.")
 
-# SHAP check
 try:
     import shap
     HAS_SHAP = True
@@ -53,7 +48,6 @@ except Exception as e:
 
 warnings.filterwarnings("ignore")
 
-# ----------------- Reproducibility & Constants -----------------
 SEED = 42
 random.seed(SEED)
 np.random.seed(SEED)
@@ -80,9 +74,8 @@ def save_fig(name):
     plt.close()
     print(f"  [Saved Figure] {path}")
 
-# ----------------- Data Loading -----------------
 def load_data():
-    """Load the dataset (augmented dataset if available, else combined or mat)."""
+    """Try augmented -> combined -> mat -> download from UCI."""
     csv_path = os.path.join(DATA_DIR, "augmented_student.csv")
     if not os.path.exists(csv_path):
         csv_path = os.path.join(DATA_DIR, "combined_student.csv")
@@ -117,7 +110,6 @@ SETUPS = {
 }
 
 def build_preprocessor(X):
-    """Constructs leak-free ColumnTransformer for numerical and categorical features."""
     cat_cols = X.select_dtypes(include=["object", "category"]).columns.tolist()
     num_cols = X.select_dtypes(include=[np.number]).columns.tolist()
 
@@ -130,12 +122,11 @@ def build_preprocessor(X):
     )
     return preprocessor
 
-# ----------------- EDA Plots -----------------
 def run_eda(df):
     print("\n--- Generating Comprehensive EDA Figures ---")
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-    # 1. G3 Distribution with Zero-Grade Dropout Anomaly
+    # G3 distribution — that spike at 0 is students who dropped out or skipped final
     sns.histplot(df["G3"], bins=21, kde=True, ax=axes[0, 0], color="#1f77b4", discrete=True)
     axes[0, 0].axvline(PASS_MARK, color="red", linestyle="--", linewidth=1.5, label=f"Pass Threshold ({PASS_MARK})")
     zero_count = (df["G3"] == 0).sum()
@@ -146,20 +137,18 @@ def run_eda(df):
     axes[0, 0].set_ylabel("Student Count")
     axes[0, 0].legend()
 
-    # 2. Key Predictor Correlation
+    # correlation — G1/G2 dominate as expected
     corr_cols = [c for c in ["G1", "G2", "G3", "absences", "studytime", "failures", "age"] if c in df.columns]
     corr_matrix = df[corr_cols].corr()
     sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="mako", vmin=-1, vmax=1, ax=axes[0, 1])
     axes[0, 1].set_title("2. Predictor Correlation Matrix (G1/G2 Dominance)")
 
-    # 3. Fail Rate by Past Failures (Day-0 Indicator)
     failure_rates = df.groupby("failures")["pass"].apply(lambda s: (1 - s.mean()) * 100).reset_index()
     sns.barplot(data=failure_rates, x="failures", y="pass", ax=axes[1, 0], palette="Reds_d")
     axes[1, 0].set_title("3. Failure Rate (%) by Prior Academic Failures")
     axes[1, 0].set_xlabel("Past Academic Failures")
     axes[1, 0].set_ylabel("Actual Failure Rate (%)")
 
-    # 4. Actionable Levers: Study Time & Absences
     palette = {0: "#e74c3c", 1: "#2ecc71"}
     sns.boxplot(data=df, x="studytime", y="absences", hue="pass", palette=palette, ax=axes[1, 1], showfliers=False)
     axes[1, 1].set_title("4. Actionable Levers: Absences by Study Time Tier")
@@ -171,8 +160,8 @@ def run_eda(df):
     plt.tight_layout()
     save_fig("eda_comprehensive_overview")
 
-# ----------------- Model Training & Benchmark -----------------
 def evaluate_setups(df):
+    """Train all model combos across setups A-D, return results + pipelines."""
     print("\n--- Training & Evaluating Models Across Setups A, B, C, D ---")
     train_df, test_df = train_test_split(df, test_size=TEST_SIZE, random_state=SEED, stratify=df["pass"])
     print(f"Training set: {len(train_df)} | Test set: {len(test_df)}")
@@ -193,7 +182,7 @@ def evaluate_setups(df):
 
         preprocessor = build_preprocessor(X_train)
 
-        # Regression Models
+        # --- regression ---
         reg_models = {
             "Baseline (Mean)": DummyRegressor(strategy="mean"),
             "Ridge Regression": Ridge(alpha=1.0, random_state=SEED),
@@ -221,7 +210,8 @@ def evaluate_setups(df):
             })
             trained_pipelines[f"reg_{setup_name}_{m_name}"] = pipe
 
-        # Classification Models
+        # --- classification ---
+        # was using accuracy before, switched to F1/recall for the fail class — matters more here
         clf_models = {
             "Baseline (Majority)": DummyClassifier(strategy="most_frequent"),
             "Logistic Regression": LogisticRegression(max_iter=1000, random_state=SEED),
@@ -274,12 +264,10 @@ def evaluate_setups(df):
     df_clf.to_csv("benchmark_classification.csv", index=False)
     return train_df, test_df, df_reg, df_clf, trained_pipelines
 
-# ----------------- Plot Degradation -----------------
 def plot_setup_degradation(df_reg, df_clf):
     print("\n--- Plotting Setup Degradation (A -> B -> C -> D) ---")
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-    # Regression
     best_reg = df_reg[df_reg["Model"] != "Baseline (Mean)"].groupby("Setup")["R2"].max().reset_index()
     setup_labels = {
         "Setup A (Full/All Features)": "Setup A (Full)",
@@ -298,7 +286,6 @@ def plot_setup_degradation(df_reg, df_clf):
         axes[0].annotate(f"{val:.2f}", (p.get_x() + p.get_width() / 2., val),
                          ha="center", va="center", xytext=(0, 8), textcoords="offset points", fontweight="bold")
 
-    # Classification
     best_clf = df_clf[df_clf["Model"] != "Baseline (Majority)"].groupby("Setup")[["ROC_AUC", "Fail_Recall"]].max().reset_index()
     best_clf["Setup_Short"] = best_clf["Setup"].map(setup_labels)
     melted = best_clf.melt(id_vars="Setup_Short", value_vars=["ROC_AUC", "Fail_Recall"], var_name="Metric", value_name="Score")
@@ -311,7 +298,6 @@ def plot_setup_degradation(df_reg, df_clf):
     plt.tight_layout()
     save_fig("setup_degradation_comparison")
 
-# --- 1. Recall and Detection at Different Review Capacities ---
 def evaluate_recall_at_k(pipe, X, y_pass):
     print("\n--- Evaluating Review Capacity Curve ---")
     skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=SEED)
@@ -368,7 +354,6 @@ def evaluate_recall_at_k(pipe, X, y_pass):
     save_fig("teacher_capacity_curve")
     return df_k
 
-# --- 2. Model Calibration Analysis ---
 def evaluate_calibration(pipe, X, y_pass):
     print("\n--- Evaluating Calibration & Reliability Curve ---")
     skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=SEED)
@@ -399,7 +384,6 @@ def evaluate_calibration(pipe, X, y_pass):
     plt.legend(loc="upper left")
     save_fig("calibration_reliability_curve")
 
-# --- 3. Threshold Optimization ---
 def optimize_decision_threshold(pipe, X, y_pass, cost_fn=5.0, cost_fp=1.0):
     print("\n--- Optimizing Decision Threshold ---")
     skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=SEED)
@@ -437,7 +421,6 @@ def optimize_decision_threshold(pipe, X, y_pass, cost_fn=5.0, cost_fp=1.0):
     save_fig("cost_sensitive_threshold_optimization")
     return opt_t
 
-# --- 4. Subgroup Performance Analysis ---
 def evaluate_subgroup_fairness(pipe, df_test, opt_threshold=0.35):
     print("\n--- Subgroup Performance Analysis ---")
     X_test_d = df_test.drop(columns=["G3", "pass"] + SETUPS["Setup D (Day-0: True Enrolment)"])
@@ -480,29 +463,26 @@ def evaluate_subgroup_fairness(pipe, df_test, opt_threshold=0.35):
     fairness_df.to_csv("fairness_audit.csv", index=False)
     return fairness_df
 
-# --- 5. Feature Importance Analysis with SHAP ---
 def run_shap_analysis(pipe, X_train, X_test):
     if not HAS_SHAP:
         print("\nSHAP library not available, skipping SHAP plots.")
         return
 
+    # took forever to get this working — shap + RF + OHE is a pain
     print("\n--- Computing Feature Importance with SHAP ---")
     preprocessor = pipe.named_steps["prep"]
     model = pipe.named_steps["clf"]
 
-    # Transform features
     X_train_trans = preprocessor.transform(X_train)
     X_test_trans = preprocessor.transform(X_test)
     feature_names = preprocessor.get_feature_names_out()
 
-    # TreeExplainer for Random Forest
     explainer = shap.TreeExplainer(model)
-    # Binary classification SHAP values: focus on Fail class (class index 0)
+    # RF gives back a list per class, we want class 0 (Fail)
     shap_vals = explainer.shap_values(X_test_trans)
     
-    # Random Forest returns list [n_classes] of shape (n_samples, n_features) or 3D array
     if isinstance(shap_vals, list):
-        shap_fail = shap_vals[0] # class 0 = Fail
+        shap_fail = shap_vals[0]
     elif len(shap_vals.shape) == 3:
         shap_fail = shap_vals[:, :, 0]
     else:
@@ -513,38 +493,33 @@ def run_shap_analysis(pipe, X_train, X_test):
     plt.title("SHAP Summary: Day-0 Predictors of Student Failure (Setup D)", fontsize=12)
     save_fig("shap_summary_setup_d")
 
-# ----------------- Main Execution -----------------
 def main():
     print("=" * 70)
     print("STUDENT PERFORMANCE PREDICTION: TRAINING PIPELINE")
     print("=" * 70)
 
-    # 1. Load Data
     df = load_data()
 
-    # 2. Run EDA
     run_eda(df)
 
-    # 3. Model Benchmark across Setups
+    # train everything, get back the results tables + all fitted pipelines
     train_df, test_df, df_reg, df_clf, pipelines = evaluate_setups(df)
 
-    # 4. Plot Degradation (A -> B -> C -> D)
     plot_setup_degradation(df_reg, df_clf)
 
-    # 5. Extract Best Setup D Model (Day-0 Model)
+    # pull out the day-0 RF — this is what gets deployed
     best_pipe_d = pipelines["clf_Setup D (Day-0: True Enrolment)_Random Forest Classifier"]
     X_train_d = train_df.drop(columns=["G3", "pass"] + SETUPS["Setup D (Day-0: True Enrolment)"])
     X_test_d = test_df.drop(columns=["G3", "pass"] + SETUPS["Setup D (Day-0: True Enrolment)"])
     y_train_pass = train_df["pass"]
 
-    # 6. Detailed Evaluations
     evaluate_recall_at_k(best_pipe_d, X_train_d, y_train_pass)
     evaluate_calibration(best_pipe_d, X_train_d, y_train_pass)
     opt_t = optimize_decision_threshold(best_pipe_d, X_train_d, y_train_pass, cost_fn=5.0, cost_fp=1.0)
     evaluate_subgroup_fairness(best_pipe_d, test_df, opt_threshold=opt_t)
     run_shap_analysis(best_pipe_d, X_train_d, X_test_d)
 
-    # 7. Model Serialization
+    # save models for the app
     print("\n--- Serializing Models for Web Demo & Deployment ---")
     joblib.dump(best_pipe_d, os.path.join(MODEL_DIR, "best_classifier_setup_d.joblib"))
     
@@ -557,7 +532,7 @@ def main():
     reg_a = pipelines["reg_Setup A (Full/All Features)_Random Forest Regressor"]
     joblib.dump(reg_a, os.path.join(MODEL_DIR, "best_regressor_setup_a.joblib"))
 
-    # Save a template student row for demo testing
+    # save a sample row for quick testing
     sample_student = test_df.iloc[[0]].drop(columns=["G3", "pass"] + SETUPS["Setup D (Day-0: True Enrolment)"])
     sample_student.to_csv("data/sample_student.csv", index=False)
     print("Saved sample student to 'data/sample_student.csv'")
