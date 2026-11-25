@@ -207,10 +207,18 @@ def predict(
     midterm_score,
     paid_tutoring,
     academic_support,
+    sgpa,
+    cgpa,
 ):
     study_tier = STUDY_HOURS_MAP.get(study_hours, 2)
     failures_num = int(failures)
     absences_num = int(absences)
+    sgpa_num = float(sgpa)
+    cgpa_num = float(cgpa)
+
+    # GPA adjustment — both SGPA and CGPA shift the predicted grade
+    # centered at 5.0 (midpoint), scaled so a 10 SGPA gives ~+0.6 and 0 gives ~-0.6
+    gpa_boost = 0.40 * (sgpa_num - 5.0) / 5.0 + 0.25 * (cgpa_num - 5.0) / 5.0
 
     # start from the default profile and patch in what the user gave us
     data = DEFAULT_STUDENT_PROFILE.copy()
@@ -240,7 +248,7 @@ def predict(
 
         study_bonus = STUDY_FINE_TUNE_MIDTERM.get(study_hours, 0.0)
         extra_fail = -0.25 * (failures_num - 4) if failures_num > 4 else 0.0
-        pred_grade = np.clip(combined_grade + study_bonus + extra_fail, 0.0, 10.0)
+        pred_grade = np.clip(combined_grade + study_bonus + extra_fail + gpa_boost, 0.0, 10.0)
 
         # sigmoid centered at 5.0 (passing mark), then blend with raw model prob
         grade_prob = 100.0 / (1.0 + np.exp(-1.30 * (pred_grade - 5.0)))
@@ -264,7 +272,7 @@ def predict(
         study_bonus = STUDY_FINE_TUNE_DAY0.get(study_hours, 0.0)
         extra_fail = -0.35 * (failures_num - 4) if failures_num > 4 else 0.0
         extra_abs = -0.02 * max(0, absences_num - 5)  # penalise absences above 5
-        pred_grade = np.clip(ml_grade + study_bonus + extra_fail + extra_abs, 0.0, 10.0)
+        pred_grade = np.clip(ml_grade + study_bonus + extra_fail + extra_abs + gpa_boost, 0.0, 10.0)
 
         grade_prob = 100.0 / (1.0 + np.exp(-1.30 * (pred_grade - 5.0)))
         prob = 0.35 * raw_prob + 0.65 * grade_prob
@@ -292,6 +300,17 @@ def predict(
 
     if paid_tutoring == "Yes" or academic_support == "Yes":
         notes.append("Academic tutoring / remedial support boosts student confidence and comprehension.")
+
+    # GPA-based notes
+    if sgpa_num >= 8.0:
+        notes.append(f"Previous semester SGPA ({sgpa_num:.1f}/10) is strong — good academic momentum.")
+    elif sgpa_num < 5.0:
+        notes.append(f"Previous semester SGPA ({sgpa_num:.1f}/10) is below passing level — history of struggle.")
+
+    if cgpa_num >= 7.5:
+        notes.append(f"Overall CGPA ({cgpa_num:.1f}/10) indicates consistent academic performance.")
+    elif cgpa_num < 5.0:
+        notes.append(f"Overall CGPA ({cgpa_num:.1f}/10) suggests cumulative academic difficulties.")
 
     # figure out which status bucket the grade falls into
     if pred_grade >= 8.0:
@@ -403,6 +422,24 @@ with gr.Blocks(css=CUSTOM_CSS, title="Student Academic Performance Prediction") 
                         label="Remedial / Academic Support",
                     )
 
+            with gr.Column(elem_classes="form-card"):
+                gr.Markdown("**Academic Record**")
+                with gr.Row():
+                    sgpa = gr.Slider(
+                        minimum=0,
+                        maximum=10,
+                        value=6.0,
+                        step=0.1,
+                        label="Previous Semester SGPA (0–10)",
+                    )
+                    cgpa = gr.Slider(
+                        minimum=0,
+                        maximum=10,
+                        value=6.0,
+                        step=0.1,
+                        label="Overall CGPA (0–10)",
+                    )
+
             submit_btn = gr.Button("Predict Performance", elem_id="predict-btn", size="lg")
 
         with gr.Column(scale=2):
@@ -433,6 +470,8 @@ with gr.Blocks(css=CUSTOM_CSS, title="Student Academic Performance Prediction") 
         midterm_score,
         paid_tutoring,
         academic_support,
+        sgpa,
+        cgpa,
     ]
 
     submit_btn.click(
